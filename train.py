@@ -1,6 +1,8 @@
-# Trains the model on data/data.txt and saves checkpoints/latest.pt
+# Trains the model on data/data.txt — supports resume and multiple checkpoints
 
+import argparse
 import os
+from pathlib import Path
 from typing import Callable
 
 import torch
@@ -10,16 +12,47 @@ from config import ModelConfig, TrainConfig
 from tokenizer import CharTokenizer
 from model import GPT
 from dataset import CharDataset
+from checkpoints_util import (
+    build_model_from_checkpoint,
+    build_optimizer,
+    checkpoint_paths_for_step,
+    infer_checkpoint_step,
+    load_checkpoint,
+    prepare_tokenizer,
+    prune_checkpoints,
+    resolve_resume_path,
+    save_checkpoint,
+)
 
 LogFn = Callable[[str], None]
+LOCK_FILE = Path("checkpoints/.training.lock")
 
 
-def train(log: LogFn | None = None) -> None:
+def acquire_train_lock() -> None:
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if LOCK_FILE.exists():
+        raise RuntimeError(
+            "Training already in progress (lock file exists). "
+            "Wait for the other run to finish or delete checkpoints/.training.lock if stuck."
+        )
+    LOCK_FILE.write_text(str(os.getpid()), encoding="utf-8")
+
+
+def release_train_lock() -> None:
+    if LOCK_FILE.exists():
+        LOCK_FILE.unlink(missing_ok=True)
+
+
+def train(
+    log: LogFn | None = None,
+    fresh: bool = False,
+    resume_from: str | None = None,
+) -> None:
     def say(msg: str) -> None:
         if log:
             log(msg)
         else:
-            print(msg)
+            print(msg, flush=True)
 
     mcfg = ModelConfig()
     tcfg = TrainConfig()
@@ -27,13 +60,41 @@ def train(log: LogFn | None = None) -> None:
     device = tcfg.device if torch.cuda.is_available() else "cpu"
     say(f"device: {device}")
 
+    acquire_train_lock()
+    try:
+        _run_training(say, mcfg, tcfg, device, fresh, resume_from)
+    finally:
+        release_train_lock()
+
+
+def _run_training(
+    say: LogFn,
+    mcfg: ModelConfig,
+    tcfg: TrainConfig,
+    device: str,
+    fresh: bool,
+    resume_from: str | None,
+) -> None:
+
+    # CPU stability: limit threads and batch size to reduce crashes on Windows
+    if device == "cpu":
+        torch.set_num_threads(min(4, os.cpu_count() or 4))
+        if tcfg.batch_size > 16:
+            say(f"cpu: reducing batch_size {tcfg.batch_size} -> 16 for stability")
+            tcfg.batch_size = 16
+
     text = open(tcfg.data_path, encoding="utf-8").read()
     if not text.strip():
         raise ValueError(f"No text found in {tcfg.data_path}")
 
-    tok = CharTokenizer(text)
+    resume_path = resolve_resume_path(tcfg, resume_from, fresh)
+    ckpt = load_checkpoint(resume_path, device) if resume_path else None
+
+    tok, vocab_grew = prepare_tokenizer(text, ckpt)
     mcfg.vocab_size = tok.vocab_size
     say(f"vocab size: {mcfg.vocab_size} | text length: {len(text):,} chars")
+    if vocab_grew and ckpt is not None:
+        say("new characters found in data - vocab expanded (training continues, not restarted)")
 
     data = torch.tensor(tok.encode(text), dtype=torch.long)
     split = int(0.9 * len(data))
@@ -50,15 +111,32 @@ def train(log: LogFn | None = None) -> None:
         batch_size=tcfg.batch_size,
     )
 
-    model = GPT(mcfg).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=tcfg.lr)
+    model = build_model_from_checkpoint(mcfg, tok, ckpt, device)
+    optimizer = build_optimizer(model, tcfg.lr, ckpt)
     params = sum(p.numel() for p in model.parameters())
     say(f"parameters: {params:,}")
+
+    start_step = infer_checkpoint_step(ckpt, resume_path) if ckpt and resume_path else 0
+    if ckpt and start_step > 0:
+        say(f"resuming from step {start_step} -> target {tcfg.max_iters}")
+    elif ckpt and resume_path:
+        say(
+            f"legacy checkpoint loaded (weights only, step unknown). "
+            f"Use checkpoints/step_XXXXXX.pt or: python scripts/debug.py migrate {resume_path} --step N"
+        )
 
     os.makedirs(tcfg.checkpoint_dir, exist_ok=True)
     train_iter = iter(train_loader)
 
-    for step in range(1, tcfg.max_iters + 1):
+    if start_step >= tcfg.max_iters:
+        say(f"already reached target ({start_step} >= {tcfg.max_iters}). use --fresh or raise max_iters.")
+        return
+
+    say(f"training steps {start_step + 1}-{tcfg.max_iters} (log every {tcfg.log_interval})...")
+    if start_step == 0:
+        say("first steps on CPU can take a few minutes - please wait")
+
+    for step in range(start_step + 1, tcfg.max_iters + 1):
         model.train()
         try:
             x, y = next(train_iter)
@@ -73,10 +151,10 @@ def train(log: LogFn | None = None) -> None:
         loss.backward()
         optimizer.step()
 
-        if step % tcfg.log_interval == 0:
+        if step == start_step + 1 or step % tcfg.log_interval == 0:
             say(f"step {step:5d} | train loss {loss.item():.4f}")
 
-        if step % tcfg.eval_interval == 0:
+        if step % tcfg.save_every == 0:
             model.eval()
             losses = []
             with torch.no_grad():
@@ -87,23 +165,21 @@ def train(log: LogFn | None = None) -> None:
             val_loss = sum(losses) / len(losses)
             say(f"step {step:5d} | val loss   {val_loss:.4f}")
 
-            ckpt_path = os.path.join(tcfg.checkpoint_dir, "latest.pt")
-            torch.save(
-                {
-                    "model": model.state_dict(),
-                    "mcfg": mcfg,
-                    "stoi": tok.stoi,
-                    "itos": tok.itos,
-                },
-                ckpt_path,
-            )
-            say(f"saved {ckpt_path}")
+            for ckpt_path in checkpoint_paths_for_step(tcfg, step):
+                save_checkpoint(ckpt_path, model, optimizer, step, mcfg, tok, val_loss)
+                say(f"saved {ckpt_path}")
+
+            prune_checkpoints(tcfg)
 
     say("training done.")
 
 
 def main() -> None:
-    train()
+    parser = argparse.ArgumentParser(description="Train the mini LLM")
+    parser.add_argument("--fresh", action="store_true", help="ignore saved checkpoints and start over")
+    parser.add_argument("--resume-from", default=None, help="path to a specific .pt checkpoint")
+    args = parser.parse_args()
+    train(fresh=args.fresh, resume_from=args.resume_from)
 
 
 if __name__ == "__main__":

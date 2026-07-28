@@ -17,14 +17,16 @@ class ModelConfig:
 # --- Training ---
 @dataclass
 class TrainConfig:
-    batch_size: int = 32         # samples per training step
+    batch_size: int = 16         # samples per training step (auto-capped on CPU in train.py)
     lr: float = 3e-4               # learning rate (step size when updating weights)
-    max_iters: int = 5000          # total training steps
-    eval_interval: int = 500       # how often to check validation loss
-    log_interval: int = 100        # how often to print training loss
+    max_iters: int = 5000          # total steps to reach (resume continues until this)
+    log_interval: int = 10         # how often to print training loss
     device: str = "cuda"           # "cuda" for GPU, falls back to cpu in train.py
     data_path: str = "data/data.txt"
     checkpoint_dir: str = "checkpoints"
+    save_every: int = 500          # save a checkpoint every N steps
+    keep_checkpoints: int = 20     # keep this many step_*.pt files (older ones deleted)
+    auto_resume: bool = True         # continue from latest.pt on next train.py run
 
 
 # --- Text generation (used by generate.py after training) ---

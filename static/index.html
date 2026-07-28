@@ -10,13 +10,14 @@
   <div class="app">
     <header>
       <h1>Mini LLM</h1>
-      <p class="sub">Train locally · chat with your tiny model</p>
+      <p class="sub">Train locally · add data · chat</p>
       <div id="status" class="status">checking...</div>
     </header>
 
     <nav class="tabs">
       <button class="tab active" data-tab="chat">Chat</button>
       <button class="tab" data-tab="train">Train</button>
+      <button class="tab" data-tab="data">Data</button>
     </nav>
 
     <section id="chat-panel" class="panel active">
@@ -28,12 +29,29 @@
     </section>
 
     <section id="train-panel" class="panel">
-      <p class="hint">Training uses <code>data/data.txt</code> and saves to <code>checkpoints/latest.pt</code>. CPU may take several minutes.</p>
+      <p class="hint">Resume continues from <code>latest.pt</code>. Fresh starts over. Checkpoints save every 500 steps.</p>
       <div class="train-actions">
-        <button id="train-btn">Start training</button>
-        <button id="reload-btn" type="button">Reload model</button>
+        <button id="train-resume-btn">Resume training</button>
+        <button id="train-fresh-btn" class="secondary">Fresh start</button>
+        <button id="reload-btn" type="button" class="secondary">Reload model</button>
       </div>
+      <div id="checkpoint-list" class="checkpoint-list"></div>
       <pre id="train-log" class="log"></pre>
+    </section>
+
+    <section id="data-panel" class="panel">
+      <p class="hint">Add text between training sessions. New data is picked up on the next train run (resume keeps your progress).</p>
+      <div id="data-stats" class="data-stats">loading...</div>
+
+      <label class="field-label">Append dialogue</label>
+      <input id="data-user" type="text" placeholder="User message" />
+      <input id="data-assistant" type="text" placeholder="Assistant reply" />
+      <button id="data-dialogue-btn" type="button">Add dialogue pair</button>
+
+      <label class="field-label">Append raw text</label>
+      <textarea id="data-text" rows="5" placeholder="Paste stories, notes, Q&A, code snippets..."></textarea>
+      <button id="data-text-btn" type="button">Append text</button>
+      <p id="data-msg" class="data-msg"></p>
     </section>
   </div>
 

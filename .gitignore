@@ -1,4 +1,5 @@
 __pycache__/
 .venv/
-checkpoints/
+.checkpoints/
 *.pt
+.training.lock

@@ -32,7 +32,7 @@ class ModelRunner:
                 f"No checkpoint at {self.gcfg.checkpoint_path}. Train the model first."
             )
 
-        ckpt = torch.load(self.gcfg.checkpoint_path, map_location=self.device)
+        ckpt = torch.load(self.gcfg.checkpoint_path, map_location=self.device, weights_only=False)
         self.mcfg = ckpt["mcfg"]
         self.tokenizer = CharTokenizer.from_maps(ckpt["stoi"], ckpt["itos"])
 

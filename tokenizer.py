@@ -22,7 +22,19 @@ class CharTokenizer:
     def from_maps(cls, stoi: dict, itos: dict):
         # reload saved vocab from a checkpoint (for generate.py)
         tok = cls.__new__(cls)
-        tok.stoi = stoi
-        tok.itos = itos
+        tok.stoi = dict(stoi)
+        tok.itos = {int(k): v for k, v in itos.items()}
         tok.vocab_size = len(stoi)
         return tok
+
+    def merge_new_chars(self, text: str) -> bool:
+        # add new characters from updated data without reshuffling existing ids
+        added = False
+        for ch in sorted(set(text)):
+            if ch not in self.stoi:
+                idx = self.vocab_size
+                self.stoi[ch] = idx
+                self.itos[idx] = ch
+                self.vocab_size += 1
+                added = True
+        return added

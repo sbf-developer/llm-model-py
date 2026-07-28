@@ -11,6 +11,9 @@ from pydantic import BaseModel
 
 from inference import ModelRunner
 from train import train
+from checkpoints_util import list_checkpoints
+from config import TrainConfig
+from data_util import append_dialogue, append_text, data_stats
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
@@ -41,13 +44,27 @@ class StatusResponse(BaseModel):
     device: str
 
 
-def _train_worker() -> None:
+class TrainStartRequest(BaseModel):
+    fresh: bool = False
+
+
+class AppendTextRequest(BaseModel):
+    content: str
+    label: str | None = None
+
+
+class AppendDialogueRequest(BaseModel):
+    user: str
+    assistant: str
+
+
+def _train_worker(fresh: bool = False) -> None:
     global training
     try:
         def log(msg: str) -> None:
             train_logs.append(msg)
 
-        train(log=log)
+        train(log=log, fresh=fresh)
     except Exception as exc:
         train_logs.append(f"error: {exc}")
     finally:
@@ -82,18 +99,50 @@ def train_logs_api():
 
 
 @app.post("/api/train/start")
-def train_start():
+def train_start(body: TrainStartRequest | None = None):
     global training
+    fresh = body.fresh if body else False
     with train_lock:
         if training:
             raise HTTPException(409, "Training already running")
         training = True
         train_logs.clear()
-        train_logs.append("starting training...")
+        train_logs.append("starting training..." + (" (fresh)" if fresh else " (resume if checkpoint exists)"))
 
-    thread = threading.Thread(target=_train_worker, daemon=True)
+    thread = threading.Thread(target=_train_worker, kwargs={"fresh": fresh}, daemon=True)
     thread.start()
     return {"ok": True}
+
+
+@app.get("/api/checkpoints")
+def checkpoints_api():
+    tcfg = TrainConfig()
+    return {"checkpoints": list_checkpoints(tcfg.checkpoint_dir)}
+
+
+@app.get("/api/data/stats")
+def data_stats_api():
+    return data_stats()
+
+
+@app.post("/api/data/append")
+def data_append(body: AppendTextRequest):
+    if training:
+        raise HTTPException(409, "Stop training before adding data (restart train after append)")
+    try:
+        return append_text(body.content, label=body.label)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/data/dialogue")
+def data_dialogue(body: AppendDialogueRequest):
+    if training:
+        raise HTTPException(409, "Stop training before adding data (restart train after append)")
+    try:
+        return append_dialogue(body.user, body.assistant)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @app.post("/api/model/reload")

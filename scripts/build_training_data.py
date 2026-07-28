@@ -184,23 +184,45 @@ def expand_dialogue_corpus(base: str, repeats: int = 8) -> str:
 
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build or append training data")
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="add new content to existing data.txt instead of overwriting",
+    )
+    args = parser.parse_args()
+
     parts = [
-        "Mini LLM training corpus. Modern English, dialogue, code, and prose.\n",
-        section("Dialogue", expand_dialogue_corpus(build_dialogue(), repeats=10)),
+        section("Dialogue", expand_dialogue_corpus(build_dialogue(), repeats=3)),
         section("Prose", build_prose()),
         section("Code", build_code_snippets()),
-        section("Vocabulary", build_word_and_spelling()),
-        section("Lists", build_lists()),
     ]
-    text = "\n".join(parts)
-
-    # Pad with repeated prose + dialogue blend for size (~target 400k+ chars)
-    filler = (build_prose() + "\n\n" + build_dialogue()) * 12
-    text = text + "\n\n=== Extended practice corpus ===\n\n" + filler
+    new_text = "\n".join(parts)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.append and OUT.exists() and OUT.read_text(encoding="utf-8").strip():
+        existing = OUT.read_text(encoding="utf-8")
+        text = existing + "\n\n=== Appended training data ===\n\n" + new_text
+        mode = "Appended to"
+    else:
+        base = [
+            "Mini LLM training corpus. Modern English, dialogue, code, and prose.\n",
+            section("Dialogue", expand_dialogue_corpus(build_dialogue(), repeats=10)),
+            section("Prose", build_prose()),
+            section("Code", build_code_snippets()),
+            section("Vocabulary", build_word_and_spelling()),
+            section("Lists", build_lists()),
+        ]
+        text = "\n".join(base)
+        filler = (build_prose() + "\n\n" + build_dialogue()) * 12
+        text = text + "\n\n=== Extended practice corpus ===\n\n" + filler
+        mode = "Wrote"
+
     OUT.write_text(text, encoding="utf-8")
-    print(f"Wrote {len(text):,} characters to {OUT}")
+    print(f"{mode} {len(text):,} characters to {OUT}")
 
 
 if __name__ == "__main__":
