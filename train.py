@@ -157,11 +157,14 @@ def _run_training(
         if step % tcfg.save_every == 0:
             model.eval()
             losses = []
+            max_val_batches = 50 if device == "cpu" else None  # full val on CPU takes 10+ min
             with torch.no_grad():
-                for vx, vy in val_loader:
+                for i, (vx, vy) in enumerate(val_loader):
                     vx, vy = vx.to(device), vy.to(device)
                     _, vloss = model(vx, vy)
                     losses.append(vloss.item())
+                    if max_val_batches and i + 1 >= max_val_batches:
+                        break
             val_loss = sum(losses) / len(losses)
             say(f"step {step:5d} | val loss   {val_loss:.4f}")
 

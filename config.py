@@ -24,7 +24,7 @@ class TrainConfig:
     device: str = "cuda"           # "cuda" for GPU, falls back to cpu in train.py
     data_path: str = "data/data.txt"
     checkpoint_dir: str = "checkpoints"
-    save_every: int = 500          # save a checkpoint every N steps
+    save_every: int = 100         # save a checkpoint every N steps (lower = safer on CPU crashes)
     keep_checkpoints: int = 20     # keep this many step_*.pt files (older ones deleted)
     auto_resume: bool = True         # continue from latest.pt on next train.py run
 
