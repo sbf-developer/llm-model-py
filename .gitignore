@@ -1,5 +1,7 @@
 __pycache__/
 .venv/
 .checkpoints/
-*.pt
-.training.lock
+checkpoints/step_*.pt
+checkpoints/milestone_*.pt
+checkpoints/.training.lock
+# latest.pt is allowed — commit it manually to back up your best progress

@@ -2,6 +2,8 @@
 
 import argparse
 import os
+import signal
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -26,6 +28,40 @@ from checkpoints_util import (
 
 LogFn = Callable[[str], None]
 LOCK_FILE = Path("checkpoints/.training.lock")
+_interrupt_state: dict = {}
+
+
+def _save_progress(say: LogFn, tcfg: TrainConfig, step: int, reason: str) -> None:
+    model = _interrupt_state.get("model")
+    optimizer = _interrupt_state.get("optimizer")
+    mcfg = _interrupt_state.get("mcfg")
+    tok = _interrupt_state.get("tok")
+    if not model or not optimizer or not mcfg or not tok or step <= 0:
+        return
+
+    say(f"{reason} at step {step}, saving checkpoint...")
+    model.eval()
+    for ckpt_path in checkpoint_paths_for_step(tcfg, step):
+        save_checkpoint(
+            ckpt_path,
+            model,
+            optimizer,
+            step,
+            mcfg,
+            tok,
+            _interrupt_state.get("last_val_loss"),
+        )
+        say(f"saved {ckpt_path}")
+    prune_checkpoints(tcfg)
+
+
+def _handle_interrupt(signum, frame) -> None:
+    say = _interrupt_state.get("say")
+    tcfg = _interrupt_state.get("tcfg")
+    step = _interrupt_state.get("step", 0)
+    if say and tcfg:
+        _save_progress(say, tcfg, step, "interrupted")
+    sys.exit(0)
 
 
 def acquire_train_lock() -> None:
@@ -78,10 +114,12 @@ def _run_training(
 
     # CPU stability: limit threads and batch size to reduce crashes on Windows
     if device == "cpu":
+        os.environ.setdefault("OMP_NUM_THREADS", "1")
+        os.environ.setdefault("MKL_NUM_THREADS", "1")
         torch.set_num_threads(min(4, os.cpu_count() or 4))
-        if tcfg.batch_size > 16:
-            say(f"cpu: reducing batch_size {tcfg.batch_size} -> 16 for stability")
-            tcfg.batch_size = 16
+        if tcfg.batch_size > 8:
+            say(f"cpu: reducing batch_size {tcfg.batch_size} -> 8 for stability")
+            tcfg.batch_size = 8
 
     text = open(tcfg.data_path, encoding="utf-8").read()
     if not text.strip():
@@ -132,11 +170,26 @@ def _run_training(
         say(f"already reached target ({start_step} >= {tcfg.max_iters}). use --fresh or raise max_iters.")
         return
 
-    say(f"training steps {start_step + 1}-{tcfg.max_iters} (log every {tcfg.log_interval})...")
+    say(f"training steps {start_step + 1}-{tcfg.max_iters} (log every {tcfg.log_interval}, save every {tcfg.save_every})...")
     if start_step == 0:
         say("first steps on CPU can take a few minutes - please wait")
 
+    _interrupt_state.update(
+        say=say,
+        tcfg=tcfg,
+        model=model,
+        optimizer=optimizer,
+        mcfg=mcfg,
+        tok=tok,
+        step=start_step,
+        last_val_loss=ckpt.get("val_loss") if ckpt else None,
+    )
+    signal.signal(signal.SIGINT, _handle_interrupt)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, _handle_interrupt)
+
     for step in range(start_step + 1, tcfg.max_iters + 1):
+        _interrupt_state["step"] = step
         model.train()
         try:
             x, y = next(train_iter)
@@ -166,6 +219,7 @@ def _run_training(
                     if max_val_batches and i + 1 >= max_val_batches:
                         break
             val_loss = sum(losses) / len(losses)
+            _interrupt_state["last_val_loss"] = val_loss
             say(f"step {step:5d} | val loss   {val_loss:.4f}")
 
             for ckpt_path in checkpoint_paths_for_step(tcfg, step):
