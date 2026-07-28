@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini LLM</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Mini LLM</h1>
+      <p class="sub">Train locally · chat with your tiny model</p>
+      <div id="status" class="status">checking...</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="chat">Chat</button>
+      <button class="tab" data-tab="train">Train</button>
+    </nav>
+
+    <section id="chat-panel" class="panel active">
+      <div id="messages" class="messages"></div>
+      <form id="chat-form" class="composer">
+        <input id="chat-input" type="text" placeholder="Say something..." autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section id="train-panel" class="panel">
+      <p class="hint">Training uses <code>data/data.txt</code> and saves to <code>checkpoints/latest.pt</code>. CPU may take several minutes.</p>
+      <div class="train-actions">
+        <button id="train-btn">Start training</button>
+        <button id="reload-btn" type="button">Reload model</button>
+      </div>
+      <pre id="train-log" class="log"></pre>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
