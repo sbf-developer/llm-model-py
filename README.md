@@ -4,6 +4,8 @@ A small GPT-style language model built from scratch in Python and PyTorch. Train
 
 ~837k parameters. Character-level tokenizer. Runs on CPU or GPU.
 
+![Chat UI](docs/chat-screenshot.png)
+
 ## Quick start
 
 ```powershell
