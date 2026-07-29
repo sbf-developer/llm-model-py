@@ -38,6 +38,25 @@ def _clean_chat_reply(reply: str) -> str:
     return reply.strip()
 
 
+def _trim_history(history: str, max_chars: int) -> str:
+    # keep recent turns that fit in the model context window
+    history = history.strip()
+    if max_chars <= 0 or not history:
+        return ""
+    if len(history) <= max_chars:
+        return history
+
+    chunk = history[-max_chars:]
+    turn_start = chunk.find("\nUser:")
+    if turn_start >= 0:
+        chunk = chunk[turn_start + 1 :]
+    elif not chunk.startswith("User:"):
+        nl = chunk.find("\n")
+        if nl >= 0:
+            chunk = chunk[nl + 1 :]
+    return chunk.strip()
+
+
 class ModelRunner:
     # Wraps loaded model + tokenizer for reuse
 
@@ -110,17 +129,30 @@ class ModelRunner:
         )
         return self.tokenizer.decode(out[0].tolist())
 
-    def chat(self, history: str, user_message: str, max_new_tokens: int = 200) -> str:
+    def chat(self, history: str, user_message: str, max_new_tokens: int | None = None) -> str:
         # format matches training data: User: ... Assistant: ...
         user_message = user_message.strip()
         if not user_message:
             return ""
 
-        prompt = history.strip()
+        if not self.is_loaded:
+            self.load()
+
+        max_new_tokens = max_new_tokens or self.gcfg.chat_max_new_tokens
+        suffix = f"User: {user_message}\nAssistant: "
+        block = self.mcfg.block_size if self.mcfg else ModelConfig().block_size
+        history_budget = max(0, block - len(suffix) - max_new_tokens - 8)
+
+        prompt = _trim_history(history, history_budget)
         if prompt:
             prompt += "\n"
-        prompt += f"User: {user_message}\nAssistant: "
+        prompt += suffix
 
-        full = self.complete(prompt, max_new_tokens=max_new_tokens)
+        full = self.complete(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=self.gcfg.chat_temperature,
+            top_k=self.gcfg.chat_top_k,
+        )
         reply = _clean_chat_reply(full[len(prompt):])
         return reply or "(empty reply — try training longer)"

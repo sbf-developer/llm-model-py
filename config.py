@@ -38,3 +38,7 @@ class GenerateConfig:
     temperature: float = 0.8       # higher = more random/creative
     top_k: int = 40                # only sample from top K likely chars
     device: str = "cuda"
+    # chat-only tuning (does not affect training or checkpoints)
+    chat_max_new_tokens: int = 80   # shorter replies = less drift
+    chat_temperature: float = 0.55  # lower = more stable multi-turn chat
+    chat_top_k: int = 25
