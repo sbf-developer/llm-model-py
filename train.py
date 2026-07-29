@@ -150,7 +150,9 @@ def _run_training(
     )
 
     model = build_model_from_checkpoint(mcfg, tok, ckpt, device)
-    optimizer = build_optimizer(model, tcfg.lr, ckpt)
+    optimizer = build_optimizer(model, tcfg.lr, ckpt, reset_state=vocab_grew)
+    if vocab_grew and ckpt is not None:
+        say("vocab expanded — optimizer state reset (weights kept from checkpoint)")
     params = sum(p.numel() for p in model.parameters())
     say(f"parameters: {params:,}")
 

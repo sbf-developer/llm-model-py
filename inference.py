@@ -8,6 +8,36 @@ from tokenizer import CharTokenizer
 from model import GPT
 
 
+def _clean_chat_reply(reply: str) -> str:
+    reply = reply.strip()
+
+    # cut off when the model starts a new turn
+    for stop in ("\nUser:", "\nAssistant:", "\n===", "\n---", "\nArticle:"):
+        if stop in reply:
+            reply = reply.split(stop, 1)[0]
+
+    # same-turn junk without a leading newline
+    for stop in (" User:", " Assistant:"):
+        if stop in reply:
+            reply = reply.split(stop, 1)[0]
+
+    # strip repeated role labels the model often regurgitates
+    labels = ("Assistant:", "assistant:", "User:", "user:")
+    while reply:
+        stripped = reply.lstrip()
+        removed = False
+        for label in labels:
+            if stripped.startswith(label):
+                stripped = stripped[len(label):].lstrip()
+                removed = True
+                break
+        if not removed:
+            break
+        reply = stripped
+
+    return reply.strip()
+
+
 class ModelRunner:
     # Wraps loaded model + tokenizer for reuse
 
@@ -89,13 +119,8 @@ class ModelRunner:
         prompt = history.strip()
         if prompt:
             prompt += "\n"
-        prompt += f"User: {user_message}\nAssistant:"
+        prompt += f"User: {user_message}\nAssistant: "
 
         full = self.complete(prompt, max_new_tokens=max_new_tokens)
-        reply = full[len(prompt):].strip()
-
-        # stop if model runs into another turn
-        for stop in ("\nUser:", "\nAssistant:", "\n==="):
-            if stop in reply:
-                reply = reply.split(stop)[0].strip()
+        reply = _clean_chat_reply(full[len(prompt):])
         return reply or "(empty reply — try training longer)"

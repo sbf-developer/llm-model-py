@@ -149,6 +149,217 @@ def build_word_and_spelling() -> str:
     return "\n".join(lines)
 
 
+def build_wiki_articles() -> str:
+    """Encyclopedia-style prose — short articles, clear sentences for char-level learning."""
+    articles = [
+        (
+            "Earth",
+            "Earth is the third planet from the Sun and the only place known to support life. "
+            "It is mostly covered by oceans. The atmosphere contains nitrogen and oxygen. "
+            "Earth rotates once every 24 hours and orbits the Sun in about 365 days.",
+        ),
+        (
+            "The Moon",
+            "The Moon is Earth's only natural satellite. It is about one quarter the size of Earth. "
+            "The Moon has no air and no liquid water on its surface. Its gravity is weaker than Earth's, "
+            "which is why astronauts could jump higher during the Apollo missions.",
+        ),
+        (
+            "The Sun",
+            "The Sun is a star at the center of our solar system. It is a giant ball of hot gas, "
+            "mostly hydrogen and helium. The Sun provides light and heat that make life on Earth possible. "
+            "Never look directly at the Sun without proper eye protection.",
+        ),
+        (
+            "Water",
+            "Water is a simple molecule made of two hydrogen atoms and one oxygen atom. "
+            "It exists as a solid (ice), liquid, or gas (steam). Water dissolves many substances, "
+            "which is why it is called the universal solvent. All known life needs water.",
+        ),
+        (
+            "Photosynthesis",
+            "Photosynthesis is how green plants make food using sunlight. They take in carbon dioxide "
+            "from the air and water from the soil. Using light energy, they produce sugar and release "
+            "oxygen. This process supports nearly all life on Earth.",
+        ),
+        (
+            "The Human Brain",
+            "The human brain controls thought, memory, emotion, and movement. It contains billions "
+            "of nerve cells called neurons. The brain uses about 20 percent of the body's energy even "
+            "at rest. Learning new skills can strengthen connections between neurons.",
+        ),
+        (
+            "DNA",
+            "DNA stores the instructions for building and running a living organism. "
+            "It is shaped like a double helix, discovered by Watson and Crick in 1953. "
+            "DNA is made of four chemical bases: adenine, thymine, cytosine, and guanine.",
+        ),
+        (
+            "Evolution",
+            "Evolution is the change in inherited traits of populations over many generations. "
+            "Charles Darwin proposed natural selection: organisms with helpful traits are more likely "
+            "to survive and reproduce. Fossils and DNA evidence support evolutionary theory.",
+        ),
+        (
+            "Ancient Rome",
+            "Ancient Rome began as a small city on the Tiber River in Italy. It grew into a vast "
+            "empire that ruled much of Europe, North Africa, and the Middle East. Romans built roads, "
+            "aqueducts, and laws that influenced many modern nations.",
+        ),
+        (
+            "The Renaissance",
+            "The Renaissance was a period of renewed interest in art, science, and classical learning "
+            "in Europe, roughly from the 14th to the 17th century. Artists like Leonardo da Vinci and "
+            "Michelangelo created famous works. Printing spread ideas faster than ever before.",
+        ),
+        (
+            "World War II",
+            "World War II lasted from 1939 to 1945 and involved most of the world's nations. "
+            "It ended with Allied victory over Axis powers. The war caused enormous loss of life "
+            "and led to the founding of the United Nations in 1945.",
+        ),
+        (
+            "The Internet",
+            "The Internet is a global network of connected computers. It grew from ARPANET in the "
+            "1960s and 1970s. The World Wide Web, invented by Tim Berners-Lee in 1989, made "
+            "information easy to browse with links and web pages.",
+        ),
+        (
+            "Python Programming",
+            "Python is a high-level programming language created by Guido van Rossum. "
+            "It emphasizes readable code and rapid development. Python is widely used for web apps, "
+            "data science, automation, and machine learning.",
+        ),
+        (
+            "Machine Learning",
+            "Machine learning is a branch of artificial intelligence where computers learn from data "
+            "instead of following only fixed rules. Models adjust internal parameters to reduce error. "
+            "Common tasks include classification, prediction, and text generation.",
+        ),
+        (
+            "Electricity",
+            "Electricity is the flow of electric charge, usually through wires. "
+            "It powers lights, computers, and motors. Static electricity builds up when charges "
+            "separate; current electricity flows steadily in a circuit.",
+        ),
+        (
+            "Gravity",
+            "Gravity is the force that attracts objects with mass toward each other. "
+            "On Earth, gravity gives objects weight and keeps the Moon in orbit. "
+            "Isaac Newton described gravity mathematically; Einstein explained it as curved spacetime.",
+        ),
+        (
+            "Volcanoes",
+            "A volcano is an opening in Earth's crust where molten rock, ash, and gases escape. "
+            "Most volcanoes form at plate boundaries. Active volcanoes can erupt with little warning. "
+            "Volcanic soil is often very fertile.",
+        ),
+        (
+            "The Amazon Rainforest",
+            "The Amazon rainforest spans several South American countries and holds immense biodiversity. "
+            "It produces much of the world's oxygen through photosynthesis and stores huge amounts of carbon. "
+            "Deforestation threatens wildlife and indigenous communities.",
+        ),
+        (
+            "Dinosaurs",
+            "Dinosaurs were reptiles that dominated Earth for over 150 million years. "
+            "They ranged from small bird-like species to enormous plant eaters like Argentinosaurus. "
+            "Most dinosaurs went extinct about 66 million years ago, likely after an asteroid impact.",
+        ),
+        (
+            "The Periodic Table",
+            "The periodic table organizes all known chemical elements by atomic number and properties. "
+            "Elements in the same column often behave similarly. Dmitri Mendeleev published an early "
+            "version in 1869 and predicted elements not yet discovered.",
+        ),
+        (
+            "Democracy",
+            "Democracy is a system of government where power comes from the people, often through voting. "
+            "Ancient Athens practiced direct democracy on a small scale. Modern democracies usually use "
+            "elected representatives and protect individual rights.",
+        ),
+        (
+            "Climate Change",
+            "Climate change refers to long-term shifts in temperature and weather patterns. "
+            "Human activities, especially burning fossil fuels, increase greenhouse gases in the atmosphere. "
+            "Effects include rising sea levels, stronger storms, and habitat loss.",
+        ),
+        (
+            "The Solar System",
+            "The solar system has eight planets orbiting the Sun. Inner planets are rocky; outer giants "
+            "are mostly gas and ice. Asteroids and comets also orbit the Sun. Pluto is classified as a dwarf planet.",
+        ),
+        (
+            "Shakespeare",
+            "William Shakespeare was an English playwright and poet who lived from 1564 to 1616. "
+            "He wrote tragedies like Hamlet and Macbeth, comedies like A Midsummer Night's Dream, "
+            "and sonnets still read today. His work shaped the English language.",
+        ),
+        (
+            "The Printing Press",
+            "Johannes Gutenberg's printing press, around 1440, made books cheaper and faster to produce. "
+            "Ideas spread across Europe more quickly. Literacy increased. The press helped fuel the "
+            "Reformation, science, and the Enlightenment.",
+        ),
+    ]
+
+    blocks = []
+    for title, body in articles:
+        blocks.append(f"Article: {title}\n{body}")
+    return "\n\n".join(blocks)
+
+
+def build_wiki_dialogue() -> str:
+    """Q&A pairs drawn from encyclopedia topics — matches chat training format."""
+    pairs = [
+        ("What is Earth?", "Earth is the third planet from the Sun and the only known home of life."),
+        ("Tell me about the Moon.", "The Moon orbits Earth and has no air or liquid water on its surface."),
+        ("What does the Sun do?", "The Sun is a star that gives Earth light, heat, and energy."),
+        ("Why is water important?", "Water is essential for all known life and exists as ice, liquid, and vapor."),
+        ("What is photosynthesis?", "Photosynthesis is how plants use sunlight to make food and release oxygen."),
+        ("How does the brain work?", "The brain uses billions of neurons to control thought, memory, and movement."),
+        ("What is DNA?", "DNA is a molecule that stores genetic instructions for living things."),
+        ("Who was Charles Darwin?", "Charles Darwin was a scientist who explained evolution by natural selection."),
+        ("What was Ancient Rome?", "Ancient Rome was a powerful civilization that built roads, laws, and aqueducts."),
+        ("What was the Renaissance?", "The Renaissance was a European period of renewed art, science, and learning."),
+        ("When was World War II?", "World War II lasted from 1939 to 1945."),
+        ("What is the Internet?", "The Internet is a global network that connects computers and shares information."),
+        ("What is Python used for?", "Python is used for web development, data science, scripting, and machine learning."),
+        ("What is machine learning?", "Machine learning lets computers improve by finding patterns in data."),
+        ("What is gravity?", "Gravity is the force that pulls objects with mass toward each other."),
+        ("What is a volcano?", "A volcano is an opening where molten rock and gases escape from Earth's crust."),
+        ("Where is the Amazon?", "The Amazon rainforest is in South America and holds huge biodiversity."),
+        ("What happened to the dinosaurs?", "Most dinosaurs went extinct about 66 million years ago."),
+        ("What is the periodic table?", "The periodic table lists chemical elements ordered by atomic number."),
+        ("What is democracy?", "Democracy is government by the people, often through free elections."),
+        ("What is climate change?", "Climate change is long-term warming and shifting weather, partly from human activity."),
+        ("How many planets are there?", "There are eight planets in our solar system."),
+        ("Who was Shakespeare?", "William Shakespeare was an English playwright who wrote Hamlet and many other works."),
+        ("What did Gutenberg invent?", "Gutenberg invented a printing press that spread books and ideas across Europe."),
+        ("What is electricity?", "Electricity is the flow of electric charge used to power devices."),
+        ("Explain evolution simply.", "Evolution means species change over time through natural selection."),
+        ("What is an LLM?", "An LLM is a language model trained on text to predict and generate words."),
+        ("What is a transformer?", "A transformer is a neural network architecture that uses attention layers."),
+        ("What is open source software?", "Open source software has public code that anyone can study and modify."),
+        ("What is a checkpoint in ML?", "A checkpoint saves model weights during training so you can resume later."),
+    ]
+
+    lines = []
+    for user, assistant in pairs:
+        lines.append(f"User: {user}\nAssistant: {assistant}\n")
+        if user[0].isupper():
+            low = user[0].lower() + user[1:]
+            lines.append(f"User: {low}\nAssistant: {assistant}\n")
+    return "".join(lines)
+
+
+def build_wiki_corpus() -> str:
+    return (
+        section("Wiki Articles", build_wiki_articles())
+        + section("Wiki Q&A", build_wiki_dialogue())
+    )
+
+
 def build_lists() -> str:
     return """
 Tips for training a small model:

@@ -102,13 +102,20 @@ def build_model_from_checkpoint(
     return model
 
 
-def build_optimizer(model: GPT, lr: float, ckpt: dict | None) -> torch.optim.AdamW:
+def build_optimizer(
+    model: GPT,
+    lr: float,
+    ckpt: dict | None,
+    *,
+    reset_state: bool = False,
+) -> torch.optim.AdamW:
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-    if ckpt is not None and "optimizer" in ckpt:
-        try:
-            optimizer.load_state_dict(ckpt["optimizer"])
-        except (ValueError, KeyError):
-            pass  # optimizer state mismatch after vocab expand — continue with fresh optimizer
+    if reset_state or ckpt is None or "optimizer" not in ckpt:
+        return optimizer
+    try:
+        optimizer.load_state_dict(ckpt["optimizer"])
+    except (ValueError, KeyError, RuntimeError):
+        pass  # state mismatch after vocab expand — fresh optimizer is fine
     return optimizer
 
 

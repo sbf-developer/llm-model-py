@@ -7,7 +7,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from data_util import append_dialogue, append_text, data_stats
-from scripts.build_training_data import main as rebuild_main
+from scripts.build_training_data import build_wiki_corpus, main as rebuild_main
+from data_util import append_text as _append_text
 
 
 def main():
@@ -26,6 +27,7 @@ def main():
     p_dlg.add_argument("assistant", help="assistant reply")
 
     sub.add_parser("batch", help="append generated dialogue batch (--append)")
+    sub.add_parser("wiki", help="append encyclopedia articles and wiki-style Q&A")
     sub.add_parser("rebuild", help="overwrite data.txt with full generated corpus")
 
     args = parser.parse_args()
@@ -57,6 +59,10 @@ def main():
         rebuild_main()
         s = data_stats()
         print(f"Batch appended -> total {s['chars']:,} chars")
+
+    elif args.cmd == "wiki":
+        result = _append_text(build_wiki_corpus(), label="Wiki corpus")
+        print(f"Wiki appended {result['appended_chars']:,} chars -> total {result['chars']:,}")
 
     elif args.cmd == "rebuild":
         rebuild_main()
