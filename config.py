@@ -19,7 +19,7 @@ class ModelConfig:
 class TrainConfig:
     batch_size: int = 8          # samples per step (auto-capped on CPU in train.py)
     lr: float = 3e-4               # learning rate (step size when updating weights)
-    max_iters: int = 20000         # total steps to reach (resume continues until this)
+    max_iters: int = 35000         # total steps to reach (resume continues until this)
     log_interval: int = 10         # how often to print training loss
     device: str = "cuda"           # "cuda" for GPU, falls back to cpu in train.py
     data_path: str = "data/data.txt"

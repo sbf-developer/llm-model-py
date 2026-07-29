@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from data_util import append_dialogue, append_text, data_stats
 from scripts.build_training_data import build_wiki_corpus, main as rebuild_main
+from scripts.stem_corpus import build_stem_corpus
 from data_util import append_text as _append_text
 
 
@@ -28,6 +29,7 @@ def main():
 
     sub.add_parser("batch", help="append generated dialogue batch (--append)")
     sub.add_parser("wiki", help="append encyclopedia articles and wiki-style Q&A")
+    sub.add_parser("stem", help="append science, math, physics, and multi-turn chat data")
     sub.add_parser("rebuild", help="overwrite data.txt with full generated corpus")
 
     args = parser.parse_args()
@@ -63,6 +65,10 @@ def main():
     elif args.cmd == "wiki":
         result = _append_text(build_wiki_corpus(), label="Wiki corpus")
         print(f"Wiki appended {result['appended_chars']:,} chars -> total {result['chars']:,}")
+
+    elif args.cmd == "stem":
+        result = _append_text(build_stem_corpus(), label="STEM corpus")
+        print(f"STEM appended {result['appended_chars']:,} chars -> total {result['chars']:,}")
 
     elif args.cmd == "rebuild":
         rebuild_main()
