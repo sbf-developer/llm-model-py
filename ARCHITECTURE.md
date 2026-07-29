@@ -75,7 +75,10 @@ Think of the project like a kitchen:
 | **`server.py`** | Web host | API + training/chat endpoints for the browser UI. |
 | **`static/`** | Frontend | Minimal HTML/CSS/JS chat page. |
 | **`data/data.txt`** | Textbook | Everything the model learns from. |
-| **`scripts/build_training_data.py`** | Data builder | Regenerates `data.txt` with dialogue-style examples. |
+| **`scripts/build_training_data.py`** | Data builder | Regenerates or appends dialogue, prose, and code examples. |
+| **`scripts/stem_corpus.py`** | STEM data | Science, math, physics, and multi-turn chat blocks. |
+| **`scripts/knowledge_corpus.py`** | Knowledge data | Wiki, psychology, stories, jokes, geography, and life Q&A. |
+| **`scripts/add_data.py`** | Data CLI | Append text, dialogue, wiki, stem, or knowledge to `data.txt`. |
 | **`checkpoints/latest.pt`** | Saved brain | Weights + vocab after training (created by `train.py`). |
 
 ---
@@ -134,12 +137,15 @@ sequenceDiagram
     participant Model as GPT model
     participant Tok as tokenizer
 
-    You->>API: "Hello!"
-    API->>Inf: format as User:/Assistant:
+    You->>API: message + history
+    API->>Inf: chat(history, message)
+    Inf->>Inf: reload checkpoint if newer
+    Inf->>Inf: trim history to context window
     Inf->>Tok: text → numbers
     Inf->>Model: generate next chars
     Model->>Tok: numbers → text
-    Inf->>API: extract reply
+    Inf->>Inf: clean reply (strip User:/Assistant:)
+    Inf->>API: reply
     API->>You: show message
 ```
 
@@ -147,9 +153,32 @@ Prompt format (matches training data):
 
 ```
 User: Hello!
-Assistant:
-         ↑ model continues writing here
+Assistant: 
+         ↑ model continues writing here (note the space after the colon)
 ```
+
+### What `inference.py` does for chat (inference-only — does not affect training)
+
+| Step | What it does |
+|------|----------------|
+| **Auto-reload** | If `latest.pt` was updated by training, load the newer weights before replying. |
+| **History trim** | Keeps only the last 1–2 turns and fits them in the 256-character context window. |
+| **Reply cleanup** | Strips stray `User:` / `Assistant:` labels and cuts off when the model starts a new turn. |
+| **Chat sampling** | Uses lower temperature/shorter replies than CLI `generate.py` (see `GenerateConfig` in `config.py`). |
+
+The model sees your **exact words** — no prompt rewriting or canned answer routing. Better replies come from **training data and weights**, not hidden if/else rules at chat time.
+
+### Chat “memory” — what to expect
+
+The browser sends **conversation history** each turn, but the model only **sees ~256 characters** at once (`block_size`). That is roughly one short exchange.
+
+| ✅ Can | ❌ Cannot |
+|--------|----------|
+| Remember the last line or two in the same session | Long multi-turn reasoning |
+| Answer well when the prompt matches training format | Always understand corrections like a human |
+| Improve as `latest.pt` updates during training | Learn permanently from chat (only training changes weights) |
+
+More multi-turn examples in `data.txt` + longer training help; bigger `block_size` needs a retrain from scratch or careful resize.
 
 ---
 
@@ -191,7 +220,7 @@ Our config (`config.py`):
 | `n_layers` | 4 | Four transformer blocks stacked |
 | `n_heads` | 4 | Four parallel “focus patterns” inside attention |
 | `block_size` | 256 | Model sees up to 256 characters at once |
-| `vocab_size` | ~83 | How many unique characters exist in your data |
+| `vocab_size` | ~87 | How many unique characters exist in your data (grows when you append new text) |
 
 Total parameters: **~837,000** — tiny compared to ChatGPT’s billions.
 
@@ -443,19 +472,34 @@ flowchart TB
 | `POST /api/train/start` | Train in background thread |
 | `GET /api/train/logs` | Poll training output |
 | `POST /api/chat` | Send message, get reply |
-| `POST /api/model/reload` | Load fresh checkpoint |
+| `POST /api/model/reload` | Load fresh checkpoint manually (chat also auto-reloads when `latest.pt` changes) |
+
+### Adding training data safely
+
+Append to **`data/data.txt`** — do **not** edit while training is running (training reads the file once at startup).
+
+```powershell
+python scripts/add_data.py stats
+python scripts/add_data.py dialogue "Hello" "Hi there!"
+python scripts/add_data.py wiki          # encyclopedia-style blocks
+python scripts/add_data.py stem          # science, math, physics
+python scripts/add_data.py knowledge     # psychology, stories, jokes, life Q&A
+python train.py                          # resume from latest.pt (never --fresh unless you mean it)
+```
+
+When new characters appear, vocab expands and training continues from the checkpoint. If vocab grows, the optimizer state resets but **weights are kept**.
 
 ---
 
 ## How to run (quick reference)
 
 ```powershell
-cd "c:\Users\scott\Desktop\dev\x crypto"
+cd llm-model-py
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-python train.py                              # train
-python -m uvicorn server:app --reload        # web UI → http://127.0.0.1:8000
+python train.py                              # train (auto-resumes from latest.pt)
+python -m uvicorn server:app --host 127.0.0.1 --port 8000   # web UI
 ```
 
 ---

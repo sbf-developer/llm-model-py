@@ -38,6 +38,25 @@ def _clean_chat_reply(reply: str) -> str:
     return reply.strip()
 
 
+def _keep_last_turns(history: str, max_turns: int = 1) -> str:
+    history = history.strip()
+    if not history or max_turns <= 0:
+        return ""
+
+    turns: list[str] = []
+    current: list[str] = []
+    for line in history.split("\n"):
+        if line.startswith("User:"):
+            if current:
+                turns.append("\n".join(current))
+            current = [line]
+        elif current:
+            current.append(line)
+    if current:
+        turns.append("\n".join(current))
+    return "\n".join(turns[-max_turns:])
+
+
 def _trim_history(history: str, max_chars: int) -> str:
     # keep recent turns that fit in the model context window
     history = history.strip()
@@ -66,6 +85,7 @@ class ModelRunner:
         self.model = None
         self.tokenizer = None
         self.mcfg = None
+        self._ckpt_mtime: float | None = None
 
     @property
     def is_loaded(self) -> bool:
@@ -89,6 +109,17 @@ class ModelRunner:
         self.model.load_state_dict(ckpt["model"])
         self.model.to(self.device)
         self.model.eval()
+        self._ckpt_mtime = os.path.getmtime(self.gcfg.checkpoint_path)
+
+    def maybe_reload(self) -> None:
+        if not self.checkpoint_exists:
+            return
+        try:
+            mtime = os.path.getmtime(self.gcfg.checkpoint_path)
+            if self._ckpt_mtime is None or mtime > self._ckpt_mtime:
+                self.reload()
+        except (OSError, RuntimeError, ValueError):
+            pass  # checkpoint may be mid-write while training saves
 
     def reload(self) -> None:
         self.unload()
@@ -98,6 +129,7 @@ class ModelRunner:
         self.model = None
         self.tokenizer = None
         self.mcfg = None
+        self._ckpt_mtime = None
         if self.device == "cuda":
             torch.cuda.empty_cache()
 
@@ -130,10 +162,11 @@ class ModelRunner:
         return self.tokenizer.decode(out[0].tolist())
 
     def chat(self, history: str, user_message: str, max_new_tokens: int | None = None) -> str:
-        # format matches training data: User: ... Assistant: ...
         user_message = user_message.strip()
         if not user_message:
             return ""
+
+        self.maybe_reload()
 
         if not self.is_loaded:
             self.load()
@@ -143,7 +176,8 @@ class ModelRunner:
         block = self.mcfg.block_size if self.mcfg else ModelConfig().block_size
         history_budget = max(0, block - len(suffix) - max_new_tokens - 8)
 
-        prompt = _trim_history(history, history_budget)
+        trimmed = _keep_last_turns(history, getattr(self.gcfg, "chat_history_turns", 1))
+        prompt = _trim_history(trimmed, history_budget)
         if prompt:
             prompt += "\n"
         prompt += suffix

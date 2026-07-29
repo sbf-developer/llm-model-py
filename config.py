@@ -19,7 +19,7 @@ class ModelConfig:
 class TrainConfig:
     batch_size: int = 8          # samples per step (auto-capped on CPU in train.py)
     lr: float = 3e-4               # learning rate (step size when updating weights)
-    max_iters: int = 35000         # total steps to reach (resume continues until this)
+    max_iters: int = 72000         # total steps to reach (resume continues until this)
     log_interval: int = 10         # how often to print training loss
     device: str = "cuda"           # "cuda" for GPU, falls back to cpu in train.py
     data_path: str = "data/data.txt"
@@ -39,6 +39,7 @@ class GenerateConfig:
     top_k: int = 40                # only sample from top K likely chars
     device: str = "cuda"
     # chat-only tuning (does not affect training or checkpoints)
-    chat_max_new_tokens: int = 80   # shorter replies = less drift
-    chat_temperature: float = 0.55  # lower = more stable multi-turn chat
-    chat_top_k: int = 25
+    chat_max_new_tokens: int = 60   # shorter replies = less drift
+    chat_temperature: float = 0.5   # lower = more stable multi-turn chat
+    chat_top_k: int = 20
+    chat_history_turns: int = 1     # prior User/Assistant pairs kept for context
